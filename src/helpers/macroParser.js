@@ -1,3 +1,5 @@
+import { parseDimension } from "./dimensions";
+
 function parseMacro(macroText) {
   const lines = macroText.split("\n");
   const geometries = [];

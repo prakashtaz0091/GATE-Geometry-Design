@@ -2,8 +2,7 @@ import { useState, useRef } from 'react'
 import Modal from './Modal';
 import { parseMacro } from '../helpers/macroParser';
 import useStore from '../store/useStore';
-
-
+import { toast } from 'react-toastify';
 
 export default function Panel() {
     const { geometries, setGeometries } = useStore();
@@ -105,13 +104,78 @@ export default function Panel() {
     };
 
 
+    const handleGeometryDimChange = (geometryId, dim, size) => {
+        useStore.setState((state) => ({
+            geometries: state.geometries.map((g) =>
+                g.id === geometryId
+                    ? {
+                        ...g,
+                        geometry: {
+                            ...g.geometry,
+                            [dim]: `${size} cm`,
+                        },
+                    }
+                    : g
+            ),
+        }));
+    }
+
+
+    const copyTransToClipboard = (geometry) => {
+        const transX = parseFloat(geometry.geometry.translation?.x);
+        const transY = parseFloat(geometry.geometry.translation?.y);
+        const transZ = parseFloat(geometry.geometry.translation?.z);
+
+        const macroCommand = `/gate/${geometry.name}/placement/setTranslation ${transX === 0 ? '0.' : transX} ${transY === 0 ? '0.' : transY} ${transZ === 0 ? '0.' : transZ} cm`
+        navigator.clipboard.writeText(macroCommand.trim());
+        toast.success('Copied translations to clipboard');
+
+    }
+
+
+    const copyDimsToClipboard = (geometry) => {
+        const geometryX = geometry.geometry.xLength;
+        const geometryY = geometry.geometry.yLength;
+        const geometryZ = geometry.geometry.zLength;
+
+        const macroCommand = `
+        /gate/${geometry.name}/geometry/setXLength ${geometryX}\n/gate/${geometry.name}/geometry/setYLength ${geometryY}\n/gate/${geometry.name}/geometry/setZLength ${geometryZ}
+        `
+        navigator.clipboard.writeText(macroCommand.trim());
+        toast.success('Copied dimensions to clipboard');
+
+    }
+
+    const handleGeometryPosChange = (geometryId, axis, value) => {
+        useStore.setState((state) => ({
+            geometries: state.geometries.map((g) =>
+                g.id === geometryId
+                    ? {
+                        ...g,
+                        geometry: {
+                            ...g.geometry,
+                            translation: {
+                                ...g.geometry.translation,
+                                [axis]: `${value} cm`,
+                            }
+                        },
+                    }
+                    : g
+            ),
+        }));
+    }
+
+
+
     return (
         <div
-            className={`absolute top-0 left-0 h-full bg-dark bg-opacity-50 backdrop-blur-md shadow-xl shadow-gray-900 transition-all duration-300 ${isOpen ? 'w-[400px]' : 'w-[60px]'
+            className={`absolute top-0 left-0 h-full bg-dark bg-opacity-50 backdrop-blur-md shadow-xl shadow-gray-900 transition-all duration-300 ${isOpen ? 'w-[600px]' : 'w-[60px]'
                 }`}
         >
             <div className="flex items-center justify-between p-2 border-b">
-                <span className="font-bold text-sm">{isOpen ? 'Panel' : ''}</span>
+                <h2 className="text-xl font-bold">
+                    {isOpen ? 'Spect-3D-Placer' : ''}</h2>
+
                 <button
                     onClick={() => setIsOpen(!isOpen)}
                     className="text-xs px-2 py-1 bg-gray-200 rounded"
@@ -166,7 +230,7 @@ export default function Panel() {
                                     >
                                         <details className="p-3">
                                             <summary className="cursor-pointer font-semibold">
-                                                {geometry.name}
+                                                {geometry.name} {!geometry.vis.visible && "[hidden]"}
                                             </summary>
                                             <div className="mt-2 flex justify-between items-center">
                                                 <div
@@ -180,6 +244,70 @@ export default function Panel() {
                                                         </summary>
                                                         <div>
                                                             Dimensions: {geometry.geometry.xLength} x {geometry.geometry.yLength} x {geometry.geometry.zLength}
+                                                        </div>
+                                                        <div className='flex justify-evenly align-center flex-wrap mb-2 '>
+                                                            <div className='w-[20%] flex flex-col'>
+                                                                <label className='cursor-ew-resize py-1' htmlFor="xLength">X-Length</label>
+                                                                <input
+                                                                    className='border border-white/50 rounded p-1' type="number" value={parseFloat(geometry.geometry.xLength)}
+                                                                    onChange={e => handleGeometryDimChange(geometry.id, 'xLength', e.currentTarget.value)}
+                                                                />
+                                                            </div>
+                                                            <div className='w-[20%] flex flex-col'>
+                                                                <label className='cursor-ew-resize py-1' htmlFor="yLength">Y-Length</label>
+                                                                <input
+                                                                    className='border border-white/50 rounded p-1' type="number" value={parseFloat(geometry.geometry.yLength)}
+                                                                    onChange={e => handleGeometryDimChange(geometry.id, 'yLength', e.currentTarget.value)}
+                                                                />
+                                                            </div>
+                                                            <div className='w-[20%] flex flex-col'>
+                                                                <label className='cursor-ew-resize py-1' htmlFor="zLength">Z-Length</label>
+                                                                <input
+                                                                    className='border border-white/50 rounded p-1' type="number" value={parseFloat(geometry.geometry.zLength)}
+                                                                    onChange={e => handleGeometryDimChange(geometry.id, 'zLength', e.currentTarget.value)}
+                                                                />
+                                                            </div>
+
+                                                            <button
+                                                                className='px-4 py-1 bg-blue-600 text-white rounded'
+                                                                onClick={() => copyDimsToClipboard(geometry)}
+                                                            >
+                                                                Copy
+                                                            </button>
+                                                        </div>
+                                                        <div className='flex justify-evenly align-center flex-wrap mb-2 '>
+                                                            <div className='w-[20%] flex flex-col'>
+                                                                <label className='cursor-ew-resize py-1' htmlFor="xTranslation">X-Translation</label>
+                                                                <input
+                                                                    step="0.1"
+                                                                    className='border border-white/50 rounded p-1' type="number" value={parseFloat(geometry.geometry.translation?.x)}
+                                                                    onChange={e => handleGeometryPosChange(geometry.id, 'x', e.currentTarget.value)}
+                                                                />
+                                                            </div>
+                                                            <div className='w-[20%] flex flex-col'>
+                                                                <label className='cursor-ew-resize py-1' htmlFor="yTranslation">Y-Translation</label>
+                                                                <input
+                                                                    step="0.1"
+                                                                    className='border border-white/50 rounded p-1' type="number" value={parseFloat(geometry.geometry.translation?.y)}
+                                                                    onChange={e => handleGeometryPosChange(geometry.id, 'y', e.currentTarget.value)}
+                                                                />
+                                                            </div>
+                                                            <div className='w-[20%] flex flex-col'>
+                                                                <label className='cursor-ew-resize py-1' htmlFor="zTranslation">Z-Translation</label>
+                                                                <input
+                                                                    step="0.1"
+                                                                    className='border border-white/50 rounded p-1' type="number" value={parseFloat(geometry.geometry.translation?.z)}
+                                                                    onChange={e => handleGeometryPosChange(geometry.id, 'z', e.currentTarget.value)}
+                                                                />
+                                                            </div>
+
+
+                                                            <button
+                                                                className='px-4 py-1 bg-blue-600 text-white rounded'
+                                                                onClick={() => copyTransToClipboard(geometry)}
+                                                            >
+                                                                Copy
+                                                            </button>
                                                         </div>
                                                     </details>
                                                 </div>
